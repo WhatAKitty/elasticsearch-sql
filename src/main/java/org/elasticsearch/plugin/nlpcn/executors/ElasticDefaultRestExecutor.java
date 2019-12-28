@@ -1,6 +1,8 @@
 package org.elasticsearch.plugin.nlpcn.executors;
 
 import com.google.common.collect.Maps;
+import java.io.IOException;
+import java.util.Map;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
@@ -18,11 +20,9 @@ import org.elasticsearch.rest.action.RestStatusToXContentListener;
 import org.elasticsearch.search.SearchHits;
 import org.nlpcn.es4sql.query.QueryAction;
 import org.nlpcn.es4sql.query.SqlElasticRequestBuilder;
+import org.nlpcn.es4sql.query.WriteAction;
 import org.nlpcn.es4sql.query.join.JoinRequestBuilder;
 import org.nlpcn.es4sql.query.multi.MultiQueryRequestBuilder;
-
-import java.io.IOException;
-import java.util.Map;
 
 
 public class ElasticDefaultRestExecutor implements RestExecutor {
@@ -86,6 +86,30 @@ public class ElasticDefaultRestExecutor implements RestExecutor {
             throw new Exception(String.format("Unsupported ActionRequest provided: %s", request.getClass().getName()));
         }
 
+    }
+
+    @Override
+    public void execute(Client client, Map<String, String> params, WriteAction writeAction, RestChannel channel) throws Exception {
+        SqlElasticRequestBuilder requestBuilder = writeAction.explain();
+        ActionRequest request = requestBuilder.request();
+
+        if (request instanceof org.elasticsearch.action.index.IndexRequest) {
+            requestBuilder.getBuilder().execute(new IndexRequestRestListener(channel, Maps.newHashMap()));
+        } else {
+            throw new Exception(String.format("Unsupported ActionRequest provided: %s", request.getClass().getName()));
+        }
+    }
+
+    @Override
+    public String execute(Client client, Map<String, String> params, WriteAction writeAction) throws Exception {
+        SqlElasticRequestBuilder requestBuilder = writeAction.explain();
+        ActionRequest request = requestBuilder.request();
+
+        if (request instanceof org.elasticsearch.action.index.IndexRequest) {
+            return requestBuilder.get().toString();
+        } else {
+            throw new Exception(String.format("Unsupported ActionRequest provided: %s", request.getClass().getName()));
+        }
     }
 
     private void sendDefaultResponse(SearchHits hits, RestChannel channel) {

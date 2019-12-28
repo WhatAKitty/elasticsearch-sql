@@ -9,6 +9,7 @@ import org.elasticsearch.rest.RestStatus;
 import org.nlpcn.es4sql.query.QueryAction;
 
 import java.util.*;
+import org.nlpcn.es4sql.query.WriteAction;
 
 /**
  * Created by Eliran on 26/12/2015.
@@ -56,6 +57,16 @@ public class CSVResultRestExecutor implements RestExecutor {
         }
         String csvString = buildString(separator, result, newLine);
         return csvString;
+    }
+
+    @Override
+    public void execute(Client client, Map<String, String> params, WriteAction writeAction, RestChannel channel) throws Exception {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String execute(Client client, Map<String, String> params, WriteAction writeAction) throws Exception {
+        throw new UnsupportedOperationException();
     }
 
     private boolean getBooleanOrDefault(Map<String, String> params, String param, boolean defaultValue) {

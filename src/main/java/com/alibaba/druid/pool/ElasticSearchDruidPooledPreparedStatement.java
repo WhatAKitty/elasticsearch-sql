@@ -1,21 +1,17 @@
 package com.alibaba.druid.pool;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.plugin.nlpcn.QueryActionElasticExecutor;
-import org.elasticsearch.plugin.nlpcn.executors.CSVResult;
-import org.elasticsearch.plugin.nlpcn.executors.CSVResultsExtractor;
 import org.elasticsearch.plugin.nlpcn.executors.CsvExtractorException;
 import org.nlpcn.es4sql.SearchDao;
 import org.nlpcn.es4sql.exception.SqlParseException;
 import org.nlpcn.es4sql.jdbc.ObjectResult;
 import org.nlpcn.es4sql.jdbc.ObjectResultsExtractor;
 import org.nlpcn.es4sql.query.QueryAction;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.util.List;
 
 /**
  * Created by allwefantasy on 8/30/16.
@@ -69,7 +65,7 @@ public class ElasticSearchDruidPooledPreparedStatement extends DruidPooledPrepar
 
         //String rewriteSQL = searchDao.explain(getSql()).explain().explain();
 
-        QueryAction queryAction = searchDao.explain(query);
+        QueryAction queryAction = (QueryAction) searchDao.explain(query);
         Object execution = QueryActionElasticExecutor.executeAnyAction(searchDao.getClient(), queryAction);
         return new ObjectResultsExtractor(includeScore, includeType, includeId).extractResults(execution, flat);
     }

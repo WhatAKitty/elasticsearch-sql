@@ -1,14 +1,18 @@
 package org.nlpcn.es4sql.parse;
 
-import java.util.*;
-
+import com.alibaba.druid.sql.ast.SQLCommentHint;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLOrderingSpecification;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
-import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlSelectGroupByExpr;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
-
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.nlpcn.es4sql.domain.*;
 import org.nlpcn.es4sql.domain.hints.Hint;
 import org.nlpcn.es4sql.domain.hints.HintFactory;
@@ -61,6 +65,15 @@ public class SqlParser {
         return select;
     }
 
+    public Insert parseInsert(SQLInsertStatement sqlInsertStatement) {
+        Insert insert = new Insert(findTo(sqlInsertStatement.getTableSource()).get(0));
+
+        ValuesParser valuesParser = new ValuesParser(this, sqlInsertStatement);
+        insert.setValues(valuesParser.parseValues());
+
+        return insert;
+    }
+
     public Delete parseDelete(SQLDeleteStatement deleteStatement) throws SqlParseException {
         Delete delete = new Delete();
         WhereParser whereParser = new WhereParser(this, deleteStatement);
@@ -75,7 +88,7 @@ public class SqlParser {
     public MultiQuerySelect parseMultiSelect(SQLUnionQuery query) throws SqlParseException {
         Select firstTableSelect = this.parseSelect((MySqlSelectQueryBlock) query.getLeft());
         Select secondTableSelect = this.parseSelect((MySqlSelectQueryBlock) query.getRight());
-        return new MultiQuerySelect(query.getOperator(),firstTableSelect,secondTableSelect);
+        return new MultiQuerySelect(query.getOperator(), firstTableSelect, secondTableSelect);
     }
 
     private void findSelect(MySqlSelectQueryBlock query, Select select, String tableAlias) throws SqlParseException {
@@ -135,7 +148,9 @@ public class SqlParser {
     }
 
     private String sameAliasWhere(Where where, String... aliases) throws SqlParseException {
-        if (where == null) return null;
+        if (where == null) {
+            return null;
+        }
 
         if (where instanceof Condition) {
             Condition condition = (Condition) where;
@@ -150,15 +165,20 @@ public class SqlParser {
         }
         List<String> sameAliases = new ArrayList<>();
         if (where.getWheres() != null && where.getWheres().size() > 0) {
-            for (Where innerWhere : where.getWheres())
+            for (Where innerWhere : where.getWheres()) {
                 sameAliases.add(sameAliasWhere(innerWhere, aliases));
+            }
         }
 
-        if (sameAliases.contains(null)) return null;
+        if (sameAliases.contains(null)) {
+            return null;
+        }
         String firstAlias = sameAliases.get(0);
         //return null if more than one alias
         for (String alias : sameAliases) {
-            if (!alias.equals(firstAlias)) return null;
+            if (!alias.equals(firstAlias)) {
+                return null;
+            }
         }
         return firstAlias;
     }
@@ -187,7 +207,9 @@ public class SqlParser {
             String type = sqlSelectOrderByItem.getType().toString();
 
             orderByName = orderByName.replace("`", "");
-            if (alias != null) orderByName = orderByName.replaceFirst(alias + "\\.", "");
+            if (alias != null) {
+                orderByName = orderByName.replaceFirst(alias + "\\.", "");
+            }
             select.addOrderBy(f.getNestedPath(), orderByName, type);
 
         }
@@ -201,8 +223,9 @@ public class SqlParser {
 
         select.setRowCount(Integer.parseInt(limit.getRowCount().toString()));
 
-        if (limit.getOffset() != null)
+        if (limit.getOffset() != null) {
             select.setOffset(Integer.parseInt(limit.getOffset().toString()));
+        }
     }
 
     /**
@@ -232,13 +255,31 @@ public class SqlParser {
         return fromList;
     }
 
+    private List<To> findTo(SQLTableSource to) {
+        boolean isSqlExprTable = to.getClass().isAssignableFrom(SQLExprTableSource.class);
+
+        if (isSqlExprTable) {
+            SQLExprTableSource toExpr = (SQLExprTableSource) to;
+            String[] split = toExpr.getExpr().toString().split(",");
+
+            ArrayList<To> toList = new ArrayList<>();
+            for (String source : split) {
+                toList.add(new To(source.trim(), toExpr.getAlias()));
+            }
+            return toList;
+        }
+
+        throw new RuntimeException("not supported join in insert");
+    }
+
     public JoinSelect parseJoinSelect(SQLQueryExpr sqlExpr) throws SqlParseException {
 
         MySqlSelectQueryBlock query = (MySqlSelectQueryBlock) sqlExpr.getSubQuery().getQuery();
 
         List<From> joinedFrom = findJoinedFrom(query.getFrom());
-        if (joinedFrom.size() != 2)
+        if (joinedFrom.size() != 2) {
             throw new RuntimeException("currently supports only 2 tables join");
+        }
 
         JoinSelect joinSelect = createBasicJoinSelectAccordingToTableSource((SQLJoinTableSource) query.getFrom());
         List<Hint> hints = parseHints(query.getHints());
@@ -262,15 +303,18 @@ public class SqlParser {
         Map<String, List<SQLSelectOrderByItem>> aliasToOrderBys = new HashMap<>();
         aliasToOrderBys.put(firstTableAlias, new ArrayList<SQLSelectOrderByItem>());
         aliasToOrderBys.put(secondTableAlias, new ArrayList<SQLSelectOrderByItem>());
-        if (orderBy == null) return aliasToOrderBys;
+        if (orderBy == null) {
+            return aliasToOrderBys;
+        }
         List<SQLSelectOrderByItem> orderByItems = orderBy.getItems();
         for (SQLSelectOrderByItem orderByItem : orderByItems) {
             if (orderByItem.getExpr().toString().startsWith(firstTableAlias + ".")) {
                 aliasToOrderBys.get(firstTableAlias).add(orderByItem);
             } else if (orderByItem.getExpr().toString().startsWith(secondTableAlias + ".")) {
                 aliasToOrderBys.get(secondTableAlias).add(orderByItem);
-            } else
+            } else {
                 throw new SqlParseException("order by field on join request should have alias before, got " + orderByItem.getExpr().toString());
+            }
 
         }
         return aliasToOrderBys;
@@ -287,7 +331,9 @@ public class SqlParser {
         List<Hint> hints = new ArrayList<>();
         for (SQLCommentHint sqlHint : sqlHints) {
             Hint hint = HintFactory.getHintFromString(sqlHint.getText());
-            if (hint != null) hints.add(hint);
+            if (hint != null) {
+                hints.add(hint);
+            }
         }
         return hints;
     }
@@ -333,8 +379,9 @@ public class SqlParser {
                 String aliasDotValue = condition.getValue().toString();
                 int indexOfDot = aliasDotValue.indexOf(".");
                 String owner = aliasDotValue.substring(0, indexOfDot);
-                if (owner.equals(alias))
+                if (owner.equals(alias)) {
                     fields.add(new Field(aliasDotValue.substring(indexOfDot + 1), null));
+                }
             }
         }
         return fields;
@@ -349,7 +396,9 @@ public class SqlParser {
 
     private List<Condition> getJoinConditionsFlatten(SQLJoinTableSource from) throws SqlParseException {
         List<Condition> conditions = new ArrayList<>();
-        if (from.getCondition() == null) return conditions;
+        if (from.getCondition() == null) {
+            return conditions;
+        }
         Where where = Where.newInstance();
         WhereParser whereParser = new WhereParser(this, from.getCondition());
         whereParser.parseWhere(from.getCondition(), where);
@@ -359,7 +408,9 @@ public class SqlParser {
 
     private List<Condition> getConditionsFlatten(Where where) throws SqlParseException {
         List<Condition> conditions = new ArrayList<>();
-        if (where == null) return conditions;
+        if (where == null) {
+            return conditions;
+        }
         addIfConditionRecursive(where, conditions);
         return conditions;
     }
@@ -370,7 +421,9 @@ public class SqlParser {
         for (String alias : aliases) {
             aliasToWhere.put(alias, null);
         }
-        if (where == null) return aliasToWhere;
+        if (where == null) {
+            return aliasToWhere;
+        }
 
         String allWhereFromSameAlias = sameAliasWhere(where, aliases);
         if (allWhereFromSameAlias != null) {
@@ -380,8 +433,9 @@ public class SqlParser {
         }
         for (Where innerWhere : where.getWheres()) {
             String sameAlias = sameAliasWhere(innerWhere, aliases);
-            if (sameAlias == null)
+            if (sameAlias == null) {
                 throw new SqlParseException("Currently support only one hierarchy on different tables where");
+            }
             removeAliasPrefix(innerWhere, sameAlias);
             Where aliasCurrentWhere = aliasToWhere.get(sameAlias);
             if (aliasCurrentWhere == null) {

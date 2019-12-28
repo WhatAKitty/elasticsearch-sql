@@ -40,12 +40,14 @@ import com.google.common.io.ByteStreams;
 		JDBCTests.class,
         UtilTests.class,
         MultiQueryTests.class,
-        DeleteTest.class
+        DeleteTest.class,
+        InsertTest.class
 })
 public class MainTestSuite {
 
 	private static TransportClient client;
 	private static SearchDao searchDao;
+	private static WriteDao writeDao;
 
 	@BeforeClass
 	public static void setUp() throws Exception {
@@ -102,6 +104,7 @@ public class MainTestSuite {
         loadBulk("src/test/resources/join_objects.json", TEST_INDEX_JOIN_TYPE);
 
         searchDao = new SearchDao(client);
+        writeDao = new WriteDao(client);
 
         //refresh to make sure all the docs will return on queries
         client.admin().indices().prepareRefresh(TEST_INDEX + "*").get();
@@ -373,6 +376,10 @@ public class MainTestSuite {
 	public static SearchDao getSearchDao() {
 		return searchDao;
 	}
+
+	public static WriteDao getWriteDao() {
+	    return writeDao;
+    }
 
 	public static TransportClient getClient() {
 		return client;

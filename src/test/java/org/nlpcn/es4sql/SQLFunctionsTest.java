@@ -294,7 +294,7 @@ public class SQLFunctionsTest {
 
     private CSVResult getCsvResult(boolean flat, String query, boolean includeScore, boolean includeType,boolean includeId) throws Exception {
         SearchDao searchDao = MainTestSuite.getSearchDao() != null ? MainTestSuite.getSearchDao() : getSearchDao();
-        QueryAction queryAction = searchDao.explain(query);
+        QueryAction queryAction = (QueryAction) searchDao.explain(query);
         Object execution = QueryActionElasticExecutor.executeAnyAction(searchDao.getClient(), queryAction);
         return new CSVResultsExtractor(includeScore, includeType, includeId).extractResults(execution, flat, ",");
     }
